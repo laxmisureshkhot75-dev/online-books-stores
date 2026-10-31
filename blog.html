@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blog Details</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1><a href="index.html">📚 Online Book Store Blog</a></h1>
+  </header>
+
+  <main>
+    <a class="back" href="index.html">← Back to all blogs</a>
+    <div class="card post">
+      <h2 id="postTitle">Loading...</h2>
+      <div class="date" id="postDate"></div>
+      <div id="postContent"></div>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    async function loadPost() {
+      const id = new URLSearchParams(window.location.search).get("id");
+      if (!id) {
+        document.getElementById("postTitle").textContent = "No blog selected.";
+        return;
+      }
+
+      const { data, error } = await db
+        .from("blog")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (error || !data) {
+        document.getElementById("postTitle").textContent = "Blog not found.";
+        return;
+      }
+
+      document.title = data.title;
+      document.getElementById("postTitle").textContent = data.title;
+      document.getElementById("postDate").textContent = new Date(
+        data.created_at
+      ).toLocaleString();
+      document.getElementById("postContent").textContent = data.content;
+    }
+
+    loadPost();
+  </script>
+</body>
+</html>

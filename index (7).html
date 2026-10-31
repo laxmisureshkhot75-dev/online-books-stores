@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Online Book Store Blog</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header>
+    <h1>📚 Online Book Store Blog</h1>
+    <div id="userInfo"></div>
+  </header>
+
+  <main>
+    <!-- Sign up / Login (shown when logged out) -->
+    <section id="authBox" class="card">
+      <h2>Sign up or Log in</h2>
+      <input type="email" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Password (min 6 characters)" />
+      <button id="signupBtn">Sign Up</button>
+      <button id="loginBtn" class="secondary">Log In</button>
+      <div id="authMsg" class="message"></div>
+    </section>
+
+    <!-- Add post (shown when logged in) -->
+    <section id="postBox" class="card hidden">
+      <h2>Write a Book Review / Post</h2>
+      <input type="text" id="title" placeholder="Title (e.g. Review of Wings of Fire)" />
+      <textarea id="content" rows="5" placeholder="Write your blog here..."></textarea>
+      <button id="addBtn">Publish Post</button>
+      <button id="logoutBtn" class="secondary">Log Out</button>
+      <div id="postMsg" class="message"></div>
+    </section>
+
+    <!-- All posts -->
+    <section>
+      <h2>All Blogs</h2>
+      <div id="posts">Loading...</div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // ---------- Auth ----------
+    async function refreshUser() {
+      const { data } = await db.auth.getUser();
+      const user = data.user;
+      if (user) {
+        $("authBox").classList.add("hidden");
+        $("postBox").classList.remove("hidden");
+        $("userInfo").textContent = "Logged in as " + user.email;
+      } else {
+        $("authBox").classList.remove("hidden");
+        $("postBox").classList.add("hidden");
+        $("userInfo").textContent = "";
+      }
+      return user;
+    }
+
+    $("signupBtn").onclick = async () => {
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const { error } = await db.auth.signUp({ email, password });
+      if (error) {
+        $("authMsg").className = "message error";
+        $("authMsg").textContent = error.message;
+      } else {
+        $("authMsg").className = "message success";
+        $("authMsg").textContent =
+          "Signup successful! If asked, check your email to confirm, then log in.";
+        refreshUser();
+      }
+    };
+
+    $("loginBtn").onclick = async () => {
+      const email = $("email").value.trim();
+      const password = $("password").value;
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      if (error) {
+        $("authMsg").className = "message error";
+        $("authMsg").textContent = error.message;
+      } else {
+        $("authMsg").textContent = "";
+        refreshUser();
+      }
+    };
+
+    $("logoutBtn").onclick = async () => {
+      await db.auth.signOut();
+      refreshUser();
+    };
+
+    // ---------- Add post ----------
+    $("addBtn").onclick = async () => {
+      const title = $("title").value.trim();
+      const content = $("content").value.trim();
+      if (!title || !content) {
+        $("postMsg").className = "message error";
+        $("postMsg").textContent = "Please fill in both title and content.";
+        return;
+      }
+      const user = await refreshUser();
+      const { error } = await db
+        .from("blog")
+        .insert({ title, content, author_id: user.id });
+      if (error) {
+        $("postMsg").className = "message error";
+        $("postMsg").textContent = error.message;
+      } else {
+        $("postMsg").className = "message success";
+        $("postMsg").textContent = "Post published!";
+        $("title").value = "";
+        $("content").value = "";
+        loadPosts();
+      }
+    };
+
+    // ---------- Show all posts ----------
+    async function loadPosts() {
+      const { data, error } = await db
+        .from("blog")
+        .select("id, title, content, created_at")
+        .order("created_at", { ascending: false });
+
+      const box = $("posts");
+      box.innerHTML = "";
+
+      if (error) {
+        box.textContent = "Error loading posts: " + error.message;
+        return;
+      }
+      if (!data.length) {
+        box.textContent = "No blogs yet. Log in and write the first one!";
+        return;
+      }
+
+      data.forEach((post) => {
+        const card = document.createElement("div");
+        card.className = "card post";
+
+        const h3 = document.createElement("h3");
+        const link = document.createElement("a");
+        link.href = "blog.html?id=" + post.id;
+        link.textContent = post.title;
+        h3.appendChild(link);
+
+        const date = document.createElement("div");
+        date.className = "date";
+        date.textContent = new Date(post.created_at).toLocaleString();
+
+        const p = document.createElement("p");
+        const text = post.content || "";
+        p.textContent = text.length > 150 ? text.slice(0, 150) + "..." : text;
+
+        card.append(h3, date, p);
+        box.appendChild(card);
+      });
+    }
+
+    refreshUser();
+    loadPosts();
+  </script>
+</body>
+</html>
